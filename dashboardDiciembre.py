@@ -713,6 +713,62 @@ st.dataframe(
     use_container_width=True,
     hide_index=True
 )
+
+# ================= CASCADA DE CARTERAS POR ASESOR =================
+st.markdown("---")
+st.markdown("""
+<div style='display: flex; align-items: center;'>
+    <h2 style='display: inline; font-size: 2.2rem; margin: 0;'>📊 Desglose de Carteras por Asesor</h2>
+</div>
+""", unsafe_allow_html=True)
+
+# Crear tabla de carteras por asesor
+tabla_cartera_asesor = df.groupby(['ASESOR', 'CAMPAÑA']).agg(
+    Cuentas=('CAMPAÑA', 'count'),
+    Gestionadas=('ULTIMA FECHA GESTION', lambda x: x.notna().sum()),
+    DeudaTotal=('DEUDA TOTAL', 'sum')
+).reset_index()
+
+# Calcular porcentaje de gestión por cartera
+tabla_cartera_asesor['%Gestion'] = tabla_cartera_asesor.apply(
+    lambda row: f"{int(round(row['Gestionadas']/row['Cuentas']*100)) if row['Cuentas']>0 else 0}%", axis=1)
+
+# Ordenar por asesor y cartera
+tabla_cartera_asesor = tabla_cartera_asesor.sort_values(['ASESOR', 'CAMPAÑA'])
+
+# Crear tabs para cada asesor
+asesores_lista = sorted(df['ASESOR'].dropna().unique().tolist())
+tabs = st.tabs(asesores_lista)
+
+for tab, asesor in zip(tabs, asesores_lista):
+    with tab:
+        # Filtrar datos del asesor actual
+        df_asesor_cartera = tabla_cartera_asesor[tabla_cartera_asesor['ASESOR'] == asesor].copy()
+        
+        if df_asesor_cartera.empty:
+            st.info(f"No hay datos de carteras para {asesor}")
+        else:
+            # Formatear moneda en la copia
+            df_asesor_cartera_display = df_asesor_cartera.copy()
+            df_asesor_cartera_display['DeudaTotal'] = df_asesor_cartera_display['DeudaTotal'].apply(
+                lambda x: f"S/. {int(round(x)):,}" if pd.notnull(x) else "")
+            df_asesor_cartera_display = df_asesor_cartera_display[[
+                'CAMPAÑA',
+                'Cuentas',
+                'Gestionadas',
+                '%Gestion',
+                'DeudaTotal'
+            ]]
+            
+            st.dataframe(
+                df_asesor_cartera_display.style.set_table_styles(
+                    [{'selector': 'th', 'props': [('text-align', 'center')]}]
+                ).set_properties(**{'text-align': 'center'}),
+                use_container_width=True,
+                hide_index=True
+            )
+
+# ================= FIN CASCADA DE CARTERAS POR ASESOR =================
 # ================= FIN TABLA RESUMEN POR ASESOR =================
 # ================= TABLA RESUMEN POR PRIORIDAD =================
 # Encabezado con icono
